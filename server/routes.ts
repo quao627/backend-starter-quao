@@ -2,8 +2,10 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Chatting, Friending, Posting, Profiling, Sessioning } from "./app";
+import { Authing, Chatting, Commenting, Eventing, Friending, Posting, Profiling, Sessioning } from "./app";
+import { EventDoc } from "./concepts/eventing";
 import { PostOptions } from "./concepts/posting";
+import { ProfileDoc } from "./concepts/profile";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
 
