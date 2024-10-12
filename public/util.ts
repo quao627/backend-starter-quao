@@ -66,13 +66,22 @@ const operations: Operation[] = [
     name: "Create Post",
     endpoint: "/api/posts",
     method: "POST",
-    fields: { content: "input" },
+    fields: {
+      content: "input",
+      state: "input",
+      options: { backgroundColor: "input" },
+    },
   },
   {
     name: "Update Post",
     endpoint: "/api/posts/:id",
     method: "PATCH",
-    fields: { id: "input", content: "input", options: { backgroundColor: "input" } },
+    fields: {
+      id: "input",
+      content: "input",
+      state: "input",
+      options: { backgroundColor: "input" },
+    },
   },
   {
     name: "Delete Post",
@@ -80,9 +89,174 @@ const operations: Operation[] = [
     method: "DELETE",
     fields: { id: "input" },
   },
-  //
-  // ...
-  //
+  {
+    name: "React to Post (like a post)",
+    endpoint: "/api/posts/:id/react",
+    method: "POST",
+    fields: { id: "input" },
+  },
+  {
+    name: "Get Number of Likes",
+    endpoint: "/api/posts/:id/likes",
+    method: "GET",
+    fields: { id: "input" },
+  },
+  {
+    name: "Create Profile",
+    endpoint: "/api/profiles",
+    method: "POST",
+    fields: {
+      name: "input",
+      expertise: "input",
+      interests: "input",
+      pastExperience: "input",
+      gender: "input",
+    },
+  },
+  {
+    name: "Edit Profile",
+    endpoint: "/api/profiles",
+    method: "PATCH",
+    fields: {
+      name: "input",
+      expertise: "input",
+      interests: "input",
+      pastExperience: "input",
+      gender: "input",
+    },
+  },
+  {
+    name: "Verify Profile",
+    endpoint: "/api/profiles/:userId/verify",
+    method: "PATCH",
+    fields: {
+      userId: "input",
+    },
+  },
+  {
+    name: "Get Profile",
+    endpoint: "/api/profiles/:userId",
+    method: "GET",
+    fields: {
+      userId: "input",
+    },
+  },
+  {
+    name: "Create Event",
+    endpoint: "/api/events",
+    method: "POST",
+    fields: {
+      description: "input",
+      time: "input",
+      location: "input",
+    },
+  },
+  {
+    name: "Get Events",
+    endpoint: "/api/events",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Get Event Details",
+    endpoint: "/api/events/:eventId",
+    method: "GET",
+    fields: {
+      eventId: "input",
+    },
+  },
+  {
+    name: "Update Event",
+    endpoint: "/api/events/:eventId",
+    method: "PATCH",
+    fields: {
+      eventId: "input",
+      description: "input",
+      time: "input",
+      location: "input",
+    },
+  },
+  {
+    name: "Delete Event",
+    endpoint: "/api/events/:eventId",
+    method: "DELETE",
+    fields: {
+      eventId: "input",
+    },
+  },
+  {
+    name: "Register for Event",
+    endpoint: "/api/events/:eventId/register",
+    method: "POST",
+    fields: {
+      eventId: "input",
+    },
+  },
+  {
+    name: "Start Private Chat",
+    endpoint: "/api/chats/private",
+    method: "POST",
+    fields: { targetUserId: "input" }, // target user ID to chat with
+  },
+
+  {
+    name: "Send Message",
+    endpoint: "/api/chats/:chatId/messages",
+    method: "POST",
+    fields: {
+      chatId: "input",
+      text: "input", // message content
+    },
+  },
+  {
+    name: "Get Chat",
+    endpoint: "/api/chats/:chatId",
+    method: "GET",
+    fields: {
+      chatId: "input",
+    },
+  },
+  {
+    name: "Leave Chat",
+    endpoint: "/api/chats/:chatId/leave",
+    method: "DELETE",
+    fields: {
+      chatId: "input",
+    },
+  },
+  {
+    name: "Get All Chat IDs for User",
+    endpoint: "/api/users/:userId/chats",
+    method: "GET",
+    fields: {
+      userId: "input",
+    },
+  },
+  {
+    name: "Browse Nearby Locations",
+    endpoint: "/api/locations",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Propose Meeting",
+    endpoint: "/api/meetings/propose",
+    method: "POST",
+    fields: {
+      proposer: "input", // User ID of the person proposing
+      recipient: "input", // User ID of the recipient
+      location: "input", // Location for the meeting
+    },
+  },
+  {
+    name: "Accept Meeting",
+    endpoint: "/api/meetings/:meetingId/accept",
+    method: "PATCH",
+    fields: {
+      meetingId: "input", // Meeting ID to accept
+      recipient: "input", // User ID of the recipient
+    },
+  },
 ];
 
 /*

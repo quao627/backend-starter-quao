@@ -5,7 +5,6 @@ import DocCollection, { BaseDoc } from "../framework/doc";
  * Chat information schema
  */
 export interface ChatDoc extends BaseDoc {
-  type: "Private" | "Group";
   participants: ObjectId[];
   messages: Message[];
 }
@@ -27,11 +26,7 @@ export default class ChatConcept {
   }
 
   async startPrivateChat(user1: ObjectId, user2: ObjectId) {
-    return await this.chats.createOne({ type: "Private", participants: [user1, user2], messages: [] });
-  }
-
-  async startGroupChat(users: ObjectId[]) {
-    return await this.chats.createOne({ type: "Group", participants: users, messages: [] });
+    return await this.chats.createOne({ participants: [user1, user2], messages: [] });
   }
 
   async sendMessage(chatId: ObjectId, author: ObjectId, text: string) {
@@ -54,15 +49,9 @@ export default class ChatConcept {
     return chat;
   }
 
-  async leaveChat(chatId: ObjectId, userId: ObjectId) {
-    const chat = await this.chats.readOne({ _id: chatId });
-    if (!chat) {
-      throw new ChatNotFoundError(chatId);
-    }
-
-    chat.participants = chat.participants.filter((participant) => !participant.equals(userId));
-    await this.chats.replaceOne({ _id: chatId }, chat);
-    return { msg: "Left chat successfully" };
+  async getChatIdsForUser(userId: ObjectId) {
+    const chats = await this.chats.readMany({ participants: userId });
+    return chats.map((chat) => chat._id); // Return an array of chat IDs
   }
 }
 

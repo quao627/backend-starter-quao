@@ -4,16 +4,19 @@ import DocCollection, { BaseDoc } from "../framework/doc";
 /**
  * Profile information schema
  */
-export interface ProfileDoc extends BaseDoc {
-  userId: ObjectId;
+export interface ProfileInfo {
   name: string;
-  expertise: string[];
-  interests: string[];
-  pastExperience: string[];
-  verificationStatus: "verified" | "unverified";
+  expertise: string;
+  interests: string;
+  pastExperience: string;
   gender: string;
-  followers: ObjectId[];
-  following: ObjectId[];
+}
+
+export interface ProfileDoc extends BaseDoc {
+  author: ObjectId;
+  verificationStatus: "verified" | "unverified";
+  friends: ObjectId[];
+  profileInfo: ProfileInfo;
 }
 
 /**
@@ -26,69 +29,34 @@ export default class ProfileConcept {
     this.profiles = new DocCollection<ProfileDoc>(collectionName);
   }
 
-  async createProfile(userId: ObjectId, name: string, expertise: string[], interests: string[], pastExperience: string[], gender: string) {
-    return await this.profiles.createOne({
-      userId,
-      name,
-      expertise,
-      interests,
-      pastExperience,
-      verificationStatus: "unverified",
-      gender,
-      followers: [],
-      following: [],
-    });
+  async createProfile(author: ObjectId, name: string, expertise: string, interests: string, pastExperience: string, gender: string) {
+    const existingProfile = await this.profiles.readOne({ author });
+    if (existingProfile) {
+      throw new Error("Profile already exists for this user.");
+    }
+    console.log("Creating profile for user", author);
+
+    const profileInfo: ProfileInfo = { name, expertise, interests, pastExperience, gender };
+    await this.profiles.createOne({ author, verificationStatus: "unverified", profileInfo: profileInfo });
+    return { msg: "Profile created successfully" };
   }
 
-  async editProfile(userId: ObjectId, updatedInfo: Partial<ProfileDoc>) {
-    return await this.profiles.partialUpdateOne({ userId }, updatedInfo);
+  async editProfile(author: ObjectId, name: string, expertise: string, interests: string, pastExperience: string, gender: string) {
+    const updatedInfo: ProfileInfo = { name, expertise, interests, pastExperience, gender };
+    await this.profiles.partialUpdateOne({ author: author }, { profileInfo: updatedInfo });
+    return { msg: "Profile updated successfully" };
   }
 
-  async verifyProfile(userId: ObjectId) {
-    return await this.profiles.partialUpdateOne({ userId }, { verificationStatus: "verified" });
+  async verifyProfile(author: ObjectId) {
+    return await this.profiles.partialUpdateOne({ author: author }, { verificationStatus: "verified" });
   }
 
-  async followUser(userId: ObjectId, targetUserId: ObjectId) {
-    const profile = await this.profiles.readOne({ userId: targetUserId });
+  async getProfile(author: ObjectId) {
+    const profile = await this.profiles.readOne({ author: author });
     if (!profile) {
-      throw new ProfileNotFoundError(targetUserId);
-    }
-    if (!profile.followers.includes(userId)) {
-      profile.followers.push(userId);
-      await this.profiles.partialUpdateOne({ userId: targetUserId }, { followers: profile.followers });
-    }
-
-    const currentUserProfile = await this.profiles.readOne({ userId });
-    if (currentUserProfile && !currentUserProfile.following.includes(targetUserId)) {
-      currentUserProfile.following.push(targetUserId);
-      await this.profiles.partialUpdateOne({ userId }, { following: currentUserProfile.following });
-    }
-
-    return { msg: "User followed successfully" };
-  }
-
-  async getProfile(userId: ObjectId) {
-    const profile = await this.profiles.readOne({ userId });
-    if (!profile) {
-      throw new ProfileNotFoundError(userId);
+      throw new ProfileNotFoundError(author);
     }
     return profile;
-  }
-
-  async getFollowers(userId: ObjectId) {
-    const profile = await this.profiles.readOne({ userId });
-    if (!profile) {
-      throw new ProfileNotFoundError(userId);
-    }
-    return profile.followers;
-  }
-
-  async getFollowing(userId: ObjectId) {
-    const profile = await this.profiles.readOne({ userId });
-    if (!profile) {
-      throw new ProfileNotFoundError(userId);
-    }
-    return profile.following;
   }
 }
 

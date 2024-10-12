@@ -2,10 +2,9 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Chatting, Commenting, Eventing, Friending, Posting, Profiling, Sessioning } from "./app";
+import { Authing, Chatting, Eventing, Friending, Place, Posting, Profiling, Sessioning } from "./app";
 import { EventDoc } from "./concepts/eventing";
-import { PostOptions } from "./concepts/posting";
-import { ProfileDoc } from "./concepts/profile";
+import { PostOptions, PostState } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
 
@@ -72,6 +71,7 @@ class Routes {
     return { msg: "Logged out!" };
   }
 
+  // --- Post
   @Router.get("/posts")
   @Router.validate(z.object({ author: z.string().optional() }))
   async getPosts(author?: string) {
@@ -85,29 +85,59 @@ class Routes {
     return Responses.posts(posts);
   }
 
+  /**
+   * Create a new post.
+   */
   @Router.post("/posts")
-  async createPost(session: SessionDoc, content: string, options?: PostOptions) {
+  async createPost(session: SessionDoc, content: string, state: string, options?: PostOptions) {
     const user = Sessioning.getUser(session);
-    const created = await Posting.create(user, content, options);
+    const created = await Posting.create(user, content, state as PostState, options);
     return { msg: created.msg, post: await Responses.post(created.post) };
   }
 
+  /**
+   * Update an existing post (only the author can update).
+   */
   @Router.patch("/posts/:id")
-  async updatePost(session: SessionDoc, id: string, content?: string, options?: PostOptions) {
+  async updatePost(session: SessionDoc, id: string, content?: string, state?: string, options?: PostOptions) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
     await Posting.assertAuthorIsUser(oid, user);
-    return await Posting.update(oid, content, options);
+    return await Posting.update(oid, content, state as PostState, options);
   }
 
+  /**
+   * Delete a post (only the author can delete).
+   */
   @Router.delete("/posts/:id")
   async deletePost(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
     await Posting.assertAuthorIsUser(oid, user);
-    return Posting.delete(oid);
+    return await Posting.delete(oid);
   }
 
+  /**
+   * React to a post (like a post).
+   */
+  @Router.post("/posts/:id/react")
+  async reactToPost(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    return await Posting.reactToPost(user, oid);
+  }
+
+  /**
+   * Get the number of likes for a post.
+   */
+  @Router.get("/posts/:id/likes")
+  async getLikesCount(id: string) {
+    const oid = new ObjectId(id);
+    const likesCount = await Posting.getNumberOfLikes(oid);
+    return { likes: likesCount };
+  }
+
+  // --- Friending Routes ---
   @Router.get("/friends")
   async getFriends(session: SessionDoc) {
     const user = Sessioning.getUser(session);
@@ -156,12 +186,12 @@ class Routes {
   }
 
   // --- Event Routes ---
-
   @Router.post("/events")
   async createEvent(session: SessionDoc, description: string, time: string, location: string) {
     //  Sessioning.assertAdmin(session); // only admins can create events
     const eventTime = new Date(time);
-    return await Eventing.createEvent(description, eventTime, location);
+    const eventID = await Eventing.createEvent(description, eventTime, location);
+    return { msg: "Event created successfully", eventID: eventID };
   }
 
   @Router.get("/events")
@@ -178,7 +208,7 @@ class Routes {
 
   @Router.patch("/events/:eventId")
   @Router.validate(z.object({ eventId: z.string().min(1) }))
-  async updateEvent(session: SessionDoc, eventId: string, details: Partial<EventDoc>) {
+  async updateEvent(eventId: string, details: Partial<EventDoc>) {
     //  Sessioning.assertAdmin(session);
     const oid = new ObjectId(eventId);
     return await Eventing.updateEvent(oid, details);
@@ -186,67 +216,41 @@ class Routes {
 
   @Router.delete("/events/:eventId")
   @Router.validate(z.object({ eventId: z.string().min(1) }))
-  async deleteEvent(session: SessionDoc, eventId: string) {
+  async deleteEvent(eventId: string) {
     //  Sessioning.assertAdmin(session);
     const oid = new ObjectId(eventId);
     return await Eventing.deleteEvent(oid);
   }
 
   @Router.post("/events/:eventId/register")
-  @Router.validate(z.object({ eventId: z.string().min(1) }))
   async registerForEvent(session: SessionDoc, eventId: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(eventId);
     return await Eventing.registerUserForEvent(user, oid);
   }
 
-  // --- Commenting Routes ---
-
-  @Router.post("/posts/:postId/comments")
-  @Router.validate(z.object({ postId: z.string().min(1), text: z.string().min(1) }))
-  async addComment(session: SessionDoc, postId: string, text: string) {
-    const user = Sessioning.getUser(session);
-    const oid = new ObjectId(postId);
-    return await Commenting.addComment(oid, user, text);
-  }
-
-  @Router.get("/posts/:postId/comments")
-  @Router.validate(z.object({ postId: z.string().min(1) }))
-  async getComments(postId: string) {
-    const oid = new ObjectId(postId);
-    return await Commenting.getCommentsByPost(oid);
-  }
-
-  @Router.patch("/comments/:commentId")
-  @Router.validate(z.object({ commentId: z.string().min(1), text: z.string().min(1) }))
-  async editComment(session: SessionDoc, commentId: string, text: string) {
-    const user = Sessioning.getUser(session);
-    const oid = new ObjectId(commentId);
-    return await Commenting.editComment(oid, text);
-  }
-
-  @Router.delete("/comments/:commentId")
-  @Router.validate(z.object({ commentId: z.string().min(1) }))
-  async deleteComment(session: SessionDoc, commentId: string) {
-    const user = Sessioning.getUser(session);
-    const oid = new ObjectId(commentId);
-    return await Commenting.deleteComment(oid);
-  }
-
   // --- Profile Routes ---
-
   @Router.post("/profiles")
-  async createProfile(session: SessionDoc, name: string, expertise: string[], interests: string[], pastExperience: string[], gender: string) {
+  async createProfile(session: SessionDoc, name: string, expertise: string, interests: string, pastExperience: string, gender: string) {
     const user = Sessioning.getUser(session);
     return await Profiling.createProfile(user, name, expertise, interests, pastExperience, gender);
   }
 
   @Router.patch("/profiles")
-  async editProfile(session: SessionDoc, updatedInfo: Partial<ProfileDoc>) {
+  async editProfile(session: SessionDoc, name: string, expertise: string, interests: string, pastExperience: string, gender: string) {
     const user = Sessioning.getUser(session);
-    return await Profiling.editProfile(user, updatedInfo);
+    return await Profiling.editProfile(user, name, expertise, interests, pastExperience, gender);
   }
 
+  // PATCH: Verify Profile
+  @Router.patch("/profiles/:userId/verify")
+  @Router.validate(z.object({ userId: z.string().min(1) }))
+  async verifyProfile(userId: string) {
+    const oid = new ObjectId(userId);
+    return await Profiling.verifyProfile(oid);
+  }
+
+  // GET: Get Profile by userId
   @Router.get("/profiles/:userId")
   @Router.validate(z.object({ userId: z.string().min(1) }))
   async getProfile(userId: string) {
@@ -254,16 +258,7 @@ class Routes {
     return await Profiling.getProfile(oid);
   }
 
-  @Router.put("/profiles/:targetUserId/follow")
-  @Router.validate(z.object({ targetUserId: z.string().min(1) }))
-  async followUser(session: SessionDoc, targetUserId: string) {
-    const user = Sessioning.getUser(session);
-    const targetOid = new ObjectId(targetUserId);
-    return await Profiling.followUser(user, targetOid);
-  }
-
   // --- Chat Routes ---
-
   @Router.post("/chats/private")
   async startPrivateChat(session: SessionDoc, targetUserId: string) {
     const user = Sessioning.getUser(session);
@@ -271,14 +266,7 @@ class Routes {
     return await Chatting.startPrivateChat(user, targetOid);
   }
 
-  @Router.post("/chats/group")
-  async startGroupChat(session: SessionDoc, participants: string[]) {
-    const userIds = participants.map((id) => new ObjectId(id));
-    return await Chatting.startGroupChat(userIds);
-  }
-
   @Router.post("/chats/:chatId/messages")
-  @Router.validate(z.object({ chatId: z.string().min(1), text: z.string().min(1) }))
   async sendMessage(session: SessionDoc, chatId: string, text: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(chatId);
@@ -292,12 +280,36 @@ class Routes {
     return await Chatting.getChat(oid);
   }
 
-  @Router.delete("/chats/:chatId/leave")
-  @Router.validate(z.object({ chatId: z.string().min(1) }))
-  async leaveChat(session: SessionDoc, chatId: string) {
+  // New route to get all chat IDs for a given user
+  @Router.get("/users/:userId/chats")
+  @Router.validate(z.object({ userId: z.string().min(1) }))
+  async getChatIdsForUser(userId: string) {
+    const oid = new ObjectId(userId);
+    return await Chatting.getChatIdsForUser(oid);
+  }
+
+  // Route to browse nearby locations
+  @Router.get("/locations")
+  async browseLocations() {
+    return await Place.browseNearbyLocations();
+  }
+
+  // Route to propose a meeting
+  @Router.post("/meetings/propose")
+  async proposeMeeting(session: SessionDoc, recipient: string, location: string) {
     const user = Sessioning.getUser(session);
-    const oid = new ObjectId(chatId);
-    return await Chatting.leaveChat(oid, user);
+    const recipientOid = new ObjectId(recipient);
+    const meeting = await Place.proposeMeeting(user, recipientOid, location);
+    return { msg: "Meeting proposed successfully", meeting };
+  }
+
+  // Route to accept a meeting
+  @Router.patch("/meetings/:meetingId/accept")
+  async acceptMeeting(session: SessionDoc, meetingId: string) {
+    const user = Sessioning.getUser(session);
+    const meetingOid = new ObjectId(meetingId);
+    await Place.acceptMeeting(user, meetingOid);
+    return { msg: "Meeting accepted successfully" };
   }
 }
 
